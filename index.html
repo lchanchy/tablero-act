@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero AT Restauración — ACT Colombia</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<style>
+:root{
+  --vd:#1B5E20;--vm:#2E7D32;--vc:#43A047;--vs:#C8E6C9;--vb:#E8F5E9;
+  --go:#263238;--gm:#546E7A;--gc:#ECEFF1;
+  --al:#E65100;--ab:#FFF3E0;--abr:#FF6F00;
+  --bl:#FFFFFF;--sh:0 1px 4px rgba(0,0,0,.08);--rd:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#F0F4F0;color:var(--go);font-size:14px}
+
+/* HEADER */
+.hdr{background:var(--vd);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100;gap:12px}
+.hdr-title{color:#fff;font-size:14px;font-weight:500;white-space:nowrap}
+.hdr-title span{color:var(--vs);font-weight:300}
+.hdr-r{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sdot{width:8px;height:8px;background:#69F0AE;border-radius:50%;animation:pulse 2s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.stxt{color:var(--vs);font-size:12px}
+.lupd{color:rgba(255,255,255,.4);font-size:10px;font-family:'DM Mono',monospace}
+.hbtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.hbtn:hover{background:rgba(255,255,255,.22)}
+.hbtn:disabled{opacity:.5;cursor:not-allowed}
+.hbtn-err{background:#E65100;border-color:#E65100;display:none}
+.hbtn-err:hover{background:#BF360C}
+.bdg{background:#EF5350;color:#fff;border-radius:99px;font-size:10px;padding:1px 5px;font-weight:600}
+
+/* LOADING */
+.ldo{position:fixed;inset:0;background:rgba(240,244,240,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:14px}
+.lsp{width:38px;height:38px;border:3px solid var(--vs);border-top-color:var(--vm);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{color:var(--gm);font-size:13px}
+.lbar-wrap{width:220px;height:3px;background:var(--vs);border-radius:2px;overflow:hidden}
+.lbar{height:100%;width:0;background:var(--vm);border-radius:2px;transition:width .3s}
+
+/* TOKEN WARNING */
+.twarn{background:var(--ab);border-left:4px solid var(--abr);padding:8px 1.5rem;font-size:12px;color:var(--al);display:none;align-items:center;gap:8px}
+.twarn a{color:var(--al);font-weight:500}
+
+/* PROYECTOS */
+.pbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:var(--bl);border-radius:var(--rd);padding:9px 14px;margin:10px 1.5rem 0;box-shadow:var(--sh)}
+.plbl{font-size:11px;color:var(--gm);font-weight:500;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;margin-right:2px}
+.pbtn{display:flex;align-items:center;gap:5px;font-size:12px;padding:5px 13px;border-radius:20px;border:1.5px solid #CFD8DC;background:transparent;color:var(--go);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.pbtn:hover{border-color:var(--gm);background:var(--gc)}
+.pbtn.active{background:var(--go);color:#fff;border-color:var(--go)}
+.pbtn.pr.active{background:#1565C0;border-color:#1565C0}
+.pbtn.pb.active{background:#2E7D32;border-color:#2E7D32}
+.pbtn.pf.active{background:#6A1B9A;border-color:#6A1B9A}
+.pbtn.po.active{background:#546E7A;border-color:#546E7A}
+.pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pmuns{font-size:10px;opacity:.7;font-style:italic}
+.pcnt{margin-left:auto;font-size:11px;color:var(--gm)}
+.pcnt strong{color:var(--vd);font-weight:600}
+
+/* FILTROS */
+.fbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:var(--bl);border-radius:var(--rd);padding:9px 14px;margin:8px 1.5rem 0;box-shadow:var(--sh)}
+.fbar label{font-size:11px;color:var(--gm);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.fbar select{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #CFD8DC;background:#fff;color:var(--go);cursor:pointer;font-family:'DM Sans',sans-serif}
+.fbar select:focus{outline:none;border-color:var(--vm)}
+.fsep{width:1px;height:18px;background:var(--gc)}
+.fres{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #CFD8DC;background:transparent;color:var(--gm);cursor:pointer;font-family:'DM Sans',sans-serif}
+.fres:hover{border-color:var(--vm);color:var(--vm)}
+.fcnt{margin-left:auto;font-size:12px;color:var(--gm)}
+.fcnt strong{color:var(--vd);font-weight:600}
+
+/* MAIN */
+.main{padding:10px 1.5rem 1.5rem;max-width:1600px;margin:0 auto}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:10px;margin-bottom:10px}
+.kpi{background:var(--bl);border-radius:var(--rd);padding:12px 14px;box-shadow:var(--sh);border-top:3px solid transparent;cursor:default}
+.kpi.vd{border-top-color:var(--vm)}.kpi.az{border-top-color:#1565C0}
+.kpi.na{border-top-color:#E65100}.kpi.mo{border-top-color:#6A1B9A}.kpi.te{border-top-color:#00695C}
+.kpi-v{font-size:24px;font-weight:600;line-height:1;margin-bottom:3px}
+.kpi-l{font-size:10px;color:var(--gm);font-weight:500;text-transform:uppercase;letter-spacing:.4px}
+.kpi-s{font-size:10px;color:var(--vc);margin-top:2px}
+.kpi-w{font-size:10px;color:var(--al);margin-top:2px;cursor:pointer;font-weight:500}
+.kpi-w:hover{text-decoration:underline}
+
+/* ALERT CARD */
+.acard{background:var(--ab);border:1px solid #FFCC80;border-left:4px solid var(--abr);border-radius:var(--rd);padding:10px 14px;margin-bottom:8px;cursor:pointer}
+.acard:hover{background:#FFE0B2}
+.acard-t{font-size:13px;font-weight:600;color:var(--al)}
+.acard-s{font-size:11px;color:#8D5000;margin-top:3px;line-height:1.4}
+
+/* GRID */
+.g65{display:grid;grid-template-columns:65fr 35fr;gap:9px;margin-bottom:9px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:9px}
+
+/* CARD */
+.card{background:var(--bl);border-radius:var(--rd);padding:13px 14px;box-shadow:var(--sh)}
+.ct{font-size:12px;font-weight:600;color:var(--go);margin-bottom:2px}
+.cs{font-size:10px;color:var(--gm);margin-bottom:10px}
+.cwrap{position:relative}
+
+/* LEGEND */
+.leg{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.li{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--gm)}
+.lsq{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--gc);margin-bottom:10px}
+.tab{font-size:12px;padding:5px 12px;border:none;background:transparent;color:var(--gm);cursor:pointer;border-bottom:2px solid transparent;font-family:'DM Sans',sans-serif;margin-bottom:-1px}
+.tab.on{color:var(--vm);border-bottom-color:var(--vm);font-weight:500}
+.tp{display:none}.tp.on{display:block}
+
+/* BARRAS H */
+.hbi{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.hbn{font-size:10px;color:var(--gm);width:148px;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbt{flex:1;background:var(--gc);border-radius:3px;height:17px;overflow:hidden}
+.hbf{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;min-width:18px}
+.hbf span{font-size:10px;color:#fff;font-weight:600;font-family:'DM Mono',monospace}
+
+/* GÉNERO */
+.gr{margin-bottom:9px}
+.gh{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}
+.gl{color:var(--gm);font-weight:500}
+.gn{font-family:'DM Mono',monospace;font-weight:600;color:var(--go)}
+.gp{font-size:11px;color:var(--gm)}
+.gbar{height:11px;background:var(--gc);border-radius:6px;overflow:hidden}
+.gfil{height:100%;border-radius:6px}
+
+/* TABLA VEREDAS */
+.vt{width:100%;border-collapse:collapse}
+.vt th{font-size:10px;font-weight:500;color:var(--gm);text-align:left;padding:5px 6px;border-bottom:1px solid var(--gc);text-transform:uppercase;letter-spacing:.3px}
+.vt td{font-size:11px;padding:5px 6px;border-bottom:1px solid #F5F5F5}
+.vt tr:last-child td{border-bottom:none}
+.vt tr:hover td{background:var(--vb)}
+.bdg{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
+
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:center;justify-content:center}
+.mo.on{display:flex}
+.md{background:#fff;border-radius:12px;max-width:900px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.mh{padding:14px 18px;border-bottom:1px solid var(--gc);display:flex;align-items:center;justify-content:space-between;background:var(--ab);border-radius:12px 12px 0 0}
+.mh h3{font-size:13px;font-weight:600;color:var(--al)}
+.mc{background:none;border:none;font-size:18px;cursor:pointer;color:var(--gm);padding:2px 7px;border-radius:4px}
+.mb{padding:14px 18px;overflow-y:auto;flex:1}
+.msub{font-size:12px;color:var(--gm);margin-bottom:10px;line-height:1.5}
+.msub strong{color:var(--go)}
+.et{width:100%;border-collapse:collapse;font-size:12px}
+.et th{font-size:10px;font-weight:500;color:var(--gm);text-align:left;padding:5px 7px;border-bottom:1px solid var(--gc);text-transform:uppercase;white-space:nowrap}
+.et td{padding:5px 7px;border-bottom:1px solid #F5F5F5}
+.et tr:hover td{background:var(--ab)}
+.ebdg{background:#FBE9E7;color:#BF360C;border-radius:4px;padding:2px 5px;font-size:10px;font-weight:500}
+.mf{padding:10px 18px;border-top:1px solid var(--gc);display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:11px;color:var(--gm)}
+.mbtn{font-size:12px;padding:5px 13px;border-radius:6px;border:1px solid #CFD8DC;background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mbtn-ok{border:none;background:var(--vm);color:#fff}
+
+/* MAPA */
+.map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.map-note{font-size:10px;color:var(--gm)}
+.map-legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:10px;color:var(--gm)}
+.grad{width:120px;height:10px;border-radius:999px;background:linear-gradient(90deg,#2E7D32 0%, #FDD835 55%, #C62828 100%);border:1px solid rgba(0,0,0,.08)}
+#MAPDIV{height:360px;width:100%;border-radius:10px;overflow:hidden;border:1px solid #E0E0E0;background:#F8FAF8}
+.map-empty{height:360px;display:flex;align-items:center;justify-content:center;color:var(--gm);font-size:12px;background:#F8FAF8;border:1px dashed #CFD8DC;border-radius:10px}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.g3{grid-template-columns:1fr 1fr}.g65{grid-template-columns:1fr}}
+@media(max-width:768px){.kpis{grid-template-columns:1fr 1fr}.g3,.g65{grid-template-columns:1fr}.hdr{padding:0 1rem}.pbar,.fbar{margin-left:1rem;margin-right:1rem}.main{padding:8px 1rem 1rem}}
+
+.map-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--gm);font-size:12px}
+.leaflet-container{font-family:'DM Sans',sans-serif;background:#f3f3f3}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="ldo" id="LDO">
+  <div class="lsp"></div>
+  <div class="ltxt" id="LTXT">Conectando con ArcGIS Online...</div>
+  <div class="lbar-wrap"><div class="lbar" id="LBAR"></div></div>
+</div>
+
+<!-- MODAL -->
+<div class="mo" id="MO" onclick="if(event.target===this)cerrarModal()">
+  <div class="md">
+    <div class="mh">
+      <h3>⚠ Registros con datos incompletos — Revisar en Survey123</h3>
+      <button class="mc" onclick="cerrarModal()">✕</button>
+    </div>
+    <div class="mb">
+      <div class="msub" id="MSUB"></div>
+      <table class="et">
+        <thead><tr><th>ID</th><th>Fecha</th><th>Municipio</th><th>Vereda</th><th>Responsable</th><th>Actividad</th><th>Problemas</th></tr></thead>
+        <tbody id="ETBODY"></tbody>
+      </table>
+    </div>
+    <div class="mf">
+      <span id="MTOTAL"></span>
+      <div style="display:flex;gap:7px">
+        <button class="mbtn" onclick="exportCSV()">⬇ Exportar CSV</button>
+        <button class="mbtn mbtn-ok" onclick="cerrarModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-title">Tablero de seguimiento de Asistencia y Acompañamiento Técnico <span>· ACT Colombia</span></div>
+  <div class="hdr-r">
+    <div class="sdot" id="SDOT"></div>
+    <span class="stxt" id="STXT">Cargando...</span>
+    <span class="lupd" id="LUPD"></span>
+    <button class="hbtn hbtn-err" id="BERR" onclick="abrirModal()">
+      ⚠ Errores <span class="bdg" id="NBDG">0</span>
+    </button>
+    <button class="hbtn" id="BREF" onclick="loadData()">↻ Actualizar</button>
+  </div>
+</div>
+
+<!-- PROYECTOS -->
+<div class="pbar">
+  <span class="plbl">Proyecto:</span>
+  <button class="pbtn active" data-p="" onclick="setProy(this)">Todos</button>
+  <button class="pbtn pr" data-p="r" onclick="setProy(this)">
+    <span class="pdot" style="background:#1565C0"></span> Restauración
+    <span class="pmuns">Florencia · La Montañita · El Doncello · Dibulla</span>
+  </button>
+  <button class="pbtn pb" data-p="b" onclick="setProy(this)">
+    <span class="pdot" style="background:#2E7D32"></span> Con Bosque
+    <span class="pmuns">Cartagena del Chairá · Solano</span>
+  </button>
+  <button class="pbtn pf" data-p="f" onclick="setProy(this)">
+    <span class="pdot" style="background:#6A1B9A"></span> Fragua
+    <span class="pmuns">San José del Fragua · Belén de los Andaquíes</span>
+  </button>
+  <button class="pbtn po" data-p="o" onclick="setProy(this)">
+    <span class="pdot" style="background:#546E7A"></span> Otros
+  </button>
+  <span class="pcnt" id="PCNT" style="display:none"></span>
+</div>
+
+<!-- FILTROS -->
+<div class="fbar">
+  <label>Municipio</label>
+  <select id="FM" onchange="applyFilters()"><option value="">Todos</option></select>
+  <div class="fsep"></div>
+  <label>Año</label>
+  <select id="FA" onchange="applyFilters()">
+    <option value="">Todos</option>
+    <option>2025</option>
+    <option>2026</option>
+  </select>
+  <div class="fsep"></div>
+  <label>Trimestre</label>
+  <select id="FQ" onchange="applyFilters()">
+    <option value="">Todos</option>
+    <option value="1">Q1 (Ene–Mar)</option>
+    <option value="2">Q2 (Abr–Jun)</option>
+    <option value="3">Q3 (Jul–Sep)</option>
+    <option value="4">Q4 (Oct–Dic)</option>
+  </select>
+  <div class="fsep"></div>
+  <label>Género</label>
+  <select id="FG" onchange="applyFilters()">
+    <option value="">Todos</option>
+    <option>Hombres</option><option>Mujeres</option><option>Ambos</option>
+  </select>
+  <div class="fsep"></div>
+  <label>Actividad</label>
+  <select id="FCT" onchange="applyFilters()"><option value="">Todas</option></select>
+  <button class="fres" onclick="resetFilters()">Limpiar</button>
+  <div class="fcnt">Mostrando <strong id="FCNT">—</strong> visitas</div>
+</div>
+
+<!-- KPIs -->
+<div class="main">
+<div class="kpis">
+  <div class="kpi vd"><div class="kpi-v" id="KT">—</div><div class="kpi-l">Total visitas</div><div class="kpi-s">Datos en vivo · Survey123</div></div>
+  <div class="kpi az"><div class="kpi-v" id="KM">—</div><div class="kpi-l">Municipios</div><div class="kpi-s"></div></div>
+  <div class="kpi na"><div class="kpi-v" id="KR">—</div><div class="kpi-l">Técnicos y Promotores</div><div class="kpi-s"></div></div>
+  <div class="kpi mo"><div class="kpi-v" id="KV">—</div><div class="kpi-l">Veredas</div><div class="kpi-s">Áreas de intervención</div></div>
+  <div class="kpi te" onclick="abrirModal()" style="cursor:pointer">
+    <div class="kpi-v" id="KE" style="color:var(--al)">—</div>
+    <div class="kpi-l">Registros con error</div>
+    <div class="kpi-w">Ver detalles →</div>
+  </div>
+</div>
+
+<!-- ALERTA sin clasificar -->
+<div class="acard" id="ACARD" onclick="abrirModal()" style="display:none">
+  <div class="acard-t">⚠ Registros sin actividad clasificada: <span id="ACNT"></span></div>
+  <div class="acard-s" id="ADESC"></div>
+</div>
+
+<!-- FILA 1: municipio/mes + trimestres -->
+<div class="g65">
+  <div class="card">
+    <div class="ct">Visitas por municipio y mes</div>
+    <div class="cs"></div>
+    <div id="LEGM" class="leg"></div>
+    <div class="cwrap" style="height:265px"><canvas id="CMM"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="ct">Visitas por trimestre y año</div>
+    <div class="cs"></div>
+    <div class="cwrap" style="height:265px"><canvas id="CQ"></canvas></div>
+  </div>
+</div>
+
+<!-- FILA 2: responsables + actividades + género/veredas -->
+<div class="g3">
+  <div class="card">
+    <div class="ct">Visitas por Técnicos y Promotores</div>
+    <div class="cs"></div>
+    <div id="RESP"></div>
+  </div>
+  <div class="card">
+    <div class="ct">Visitas por actividad</div>
+    <div class="cs"></div>
+    <div class="cwrap" style="height:310px"><canvas id="CACT"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="ct">Visitas por vereda</div>
+    <div class="cs"></div>
+    <div class="cwrap" style="height:310px"><canvas id="CVER"></canvas></div>
+  </div>
+</div>
+
+<div class="g65" style="margin-bottom:9px">
+  <div class="card">
+    <div class="ct">Visitas por género</div>
+    <div class="cs"></div>
+    <div id="GENBARS"></div>
+    <div class="cwrap" style="height:170px;margin-top:10px"><canvas id="CGEN"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="ct">Mapa de calor de visitas</div>
+    <div class="cs"></div>
+    <div class="map-toolbar">
+      <div class="map-legend">
+        <span>Baja densidad</span><div class="grad"></div><span>Alta densidad</span>
+      </div>
+      <div class="map-note" id="MAPINFO"></div>
+    </div>
+    <div id="MAPDIV"></div>
+  </div>
+</div>
+</div>
+
+<div style="text-align:center;padding:1rem;color:var(--gm);font-size:11px">
+  Amazon Conservation Team Colombia · Tablero seguimiento asistencia técnica en restauración ecológica · Datos en tiempo real desde ArcGIS Online / Survey123
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const BASE = 'https://services3.arcgis.com/vHljsKgQWv1IBw26/arcgis/rest/services/survey123_e743f32c5ec04ee3a651de1f9230b2eb_results/FeatureServer/0';
+const FIELDS = 'objectid,fecha,municipio,vereda,encuestador,familia,actividad_asistencia,tipo_monitoreo,mujeres,asistencia,monitoreo,pgas,pgas_cual,subvenciones_pregunta';
+
+// ── PROYECTOS ────────────────────────────────────────────────────────────────
+const PMUNS = {
+  r: ['Florencia','La Montañita','El Doncello','Dibulla'],
+  b: ['Cartagena del Chairá','Solano'],
+  f: ['San José del Fragua','Belén de los Andaquíes']
+};
+const ALL_PMUNS = [...PMUNS.r, ...PMUNS.b, ...PMUNS.f];
+let proyActivo = '';
+
+// ── COLORES ──────────────────────────────────────────────────────────────────
+const MCOL = {
+  'Belén de los Andaquíes':'#2E7D32','Dibulla':'#1565C0',
+  'La Montañita':'#E65100','El Doncello':'#6A1B9A',
+  'Florencia':'#C62828','San José del Fragua':'#00695C',
+  'Cartagena del Chairá':'#4E342E','Solano':'#00838F'
+};
+const MBDG = {
+  'Belén de los Andaquíes':['#E8F5E9','#2E7D32'],'Dibulla':['#E3F2FD','#1565C0'],
+  'La Montañita':['#FFF3E0','#E65100'],'El Doncello':['#F3E5F5','#6A1B9A'],
+  'Florencia':['#FCE4EC','#C62828'],'San José del Fragua':['#E0F7FA','#00695C'],
+  'Cartagena del Chairá':['#EFEBE9','#4E342E'],'Solano':['#E0F2F1','#00695C']
+};
+const ACOLS = ['#1B5E20','#1565C0','#4527A0','#00838F','#558B2F','#E65100','#827717','#880E4F','#00695C','#4E342E','#283593','#37474F','#BF360C','#006064','#4A148C'];
+const YCOLS = { 2025:['#1B5E20','#2E7D32','#43A047','#81C784'], 2026:['#1565C0','#1976D2','#42A5F5','#90CAF9'] };
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function normMun(m) {
+  if(!m) return null;
+  m = m.toString().trim().replace(/\s+/g,' ');
+  if(/la\s+mont/i.test(m)) return 'La Montañita';
+  if(/cartagena\s+del\s+chair/i.test(m)) return 'Cartagena del Chairá';
+  if(/san\s+jose\s+del\s+fragua/i.test(m)) return 'San José del Fragua';
+  if(/belen\s+de\s+los\s+andaqu/i.test(m) || /bel[eé]n\s+de\s+los\s+andaqu/i.test(m)) return 'Belén de los Andaquíes';
+  return m;
+}
+
+function normVereda(v, municipio) {
+  if(!v) return null;
+  let s = v.toString().trim().replace(/\s+/g,' ');
+  s = s.replace(/�/g,'é');
+  if(/^san\s+jos/i.test(s)) return 'San José';
+  if(/^san\s+josé$/i.test(s)) return 'San José';
+  return s;
+}
+
+function fmtAct(s) {
+  if(!s) return null;
+  return s.replace(/_/g,' ').replace(/\b\w/g, l=>l.toUpperCase()).trim();
+}
+
+function getQ(mes) { return Math.ceil(mes/3); }
+
+function clasificarAct(f) {
+  if(f.asistencia === 'si' && f.actividad_asistencia)
+    return fmtAct(f.actividad_asistencia);
+  if(f.monitoreo === 'si' && f.tipo_monitoreo) {
+    const t = f.tipo_monitoreo.toLowerCase();
+    if(t.includes('avifauna') && t.includes('parcela')) return 'Monitoreo Avifauna y Parcela';
+    if(t.includes('avifauna')) return 'Monitoreo Avifauna';
+    if(t.includes('parcela')) return 'Monitoreo Parcela';
+    return fmtAct(f.tipo_monitoreo);
+  }
+  if(f.pgas === 'si') return 'PGAS';
+  if(f.subvenciones_pregunta === 'si') return 'Pequeñas subvenciones';
+  return 'Sin clasificar';
+}
+
+function getErrores(f) {
+  const e = [];
+  if(!f.familia || !f.familia.toString().trim()) e.push('Sin familia');
+  if(!f.municipio) e.push('Sin municipio');
+  if(!f.vereda) e.push('Sin vereda');
+  return e;
+}
+
+function asignarResp(arr) {
+  // Contar visitas por responsable×mes (expandiendo multi-responsables)
+  const cnt = {};
+  arr.forEach(f => {
+    (f.encuestador||'').split(',').map(r=>r.trim()).filter(Boolean).forEach(r => {
+      const k = r+'||'+f._ym; cnt[k] = (cnt[k]||0)+1;
+    });
+  });
+  // Asignar el de menor conteo
+  arr.forEach(f => {
+    const rs = (f.encuestador||'').split(',').map(r=>r.trim()).filter(Boolean);
+    if(!rs.length) { f._resp = '(sin responsable)'; return; }
+    if(rs.length === 1) { f._resp = rs[0]; return; }
+    let best = rs[0], bv = cnt[rs[0]+'||'+f._ym]||0;
+    rs.slice(1).forEach(r => { const v=cnt[r+'||'+f._ym]||0; if(v<bv){bv=v;best=r;} });
+    f._resp = best;
+  });
+}
+
+// ── ESTADO ───────────────────────────────────────────────────────────────────
+let allData=[], filtData=[], errData=[];
+let CH={};
+
+function killChart(id){ if(CH[id]){CH[id].destroy();delete CH[id];} }
+
+function normalizarCoordenadas(x, y){
+  if(typeof x!=='number' || typeof y!=='number' || !isFinite(x) || !isFinite(y)) return null;
+
+  // Caso normal: long, lat
+  if(x >= -81.9 && x <= -66.7 && y >= -4.9 && y <= 13.9) return { lon:x, lat:y, swapped:false };
+
+  // Caso invertido: lat, long
+  if(y >= -81.9 && y <= -66.7 && x >= -4.9 && x <= 13.9) return { lon:y, lat:x, swapped:true };
+
+  return null;
+}
+
+function actualizarMapInfo(msg){
+  const el=document.getElementById('MAPINFO');
+  if(el) el.textContent=msg;
+}
+
+function countMapeables(data){
+  return data.filter(d=>typeof d._x==='number' && typeof d._y==='number' && normalizarCoordenadas(d._x, d._y)).length;
+}
+
+// ── CARGA DE DATOS ───────────────────────────────────────────────────────────
+async function loadData() {
+  const btn = document.getElementById('BREF');
+  btn.disabled = true;
+  document.getElementById('SDOT').style.background='#FFB300';
+  document.getElementById('STXT').textContent='Cargando...';
+  document.getElementById('LDO').style.display='flex';
+  setBar(5);
+
+  try {
+    // Total real de registros
+    const cr = await fetch(`${BASE}/query?where=1%3D1&returnCountOnly=true&f=json`);
+    const cd = await cr.json();
+    if(cd.error) throw new Error(cd.error.message);
+    const total = cd.count||0;
+
+    const PAGE=1000;
+    let all=[], offset=0;
+    while(true){
+      document.getElementById('LTXT').textContent = `Cargando registros... (${all.length} de ${total})`;
+      setBar(5 + Math.round(Math.min(all.length,total)/Math.max(total,1)*80));
+      const r = await fetch(`${BASE}/query?where=1%3D1&outFields=${FIELDS}&returnGeometry=true&outSR=4326&resultOffset=${offset}&resultRecordCount=${PAGE}&orderByFields=objectid%20ASC&f=json`);
+      const d = await r.json();
+      if(d.error) throw new Error(d.error.message);
+      const batch = d.features||[];
+      if(!batch.length) break;
+      batch.forEach(f=>{
+        const a = f.attributes;
+        const g = f.geometry || null;
+        const dt = new Date(a.fecha);
+        a._mes = dt.getMonth()+1;
+        a._anio = dt.getFullYear();
+        a._ym = `${a._anio}-${String(a._mes).padStart(2,'0')}`;
+        a._q = getQ(a._mes);
+        a.municipio = normMun(a.municipio);
+        a.vereda = normVereda(a.vereda, a.municipio);
+        a._act = clasificarAct(a);
+        a._errs = getErrores(a);
+        a._x = g && typeof g.x === 'number' ? g.x : null;
+        a._y = g && typeof g.y === 'number' ? g.y : null;
+        all.push(a);
+      });
+      if(batch.length < PAGE) break;
+      offset += PAGE;
+    }
+
+    document.getElementById('LTXT').textContent='Procesando responsables...';
+    setBar(90);
+    asignarResp(all);
+
+    errData = all.filter(d=>d._errs.length>0);
+    allData = all;
+
+    // Poblar selectores municipio y actividad (solo una vez desde todos los datos)
+    buildSelects(all);
+    applyFilters();
+
+    document.getElementById('SDOT').style.background='#69F0AE';
+    document.getElementById('STXT').textContent=`En vivo · ${all.length.toLocaleString('es-CO')} registros`;
+    document.getElementById('LUPD').textContent=`Actualizado: ${new Date().toLocaleTimeString('es-CO')}`;
+
+    if(errData.length>0){
+      document.getElementById('BERR').style.display='block';
+      document.getElementById('NBDG').textContent=errData.length;
+    }
+    setBar(100);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('SDOT').style.background='#EF5350';
+    document.getElementById('STXT').textContent='Error de conexión';
+  } finally {
+    document.getElementById('LDO').style.display='none';
+    btn.disabled=false;
+  }
+}
+
+function setBar(p){ document.getElementById('LBAR').style.width=p+'%'; }
+
+function buildSelects(data){
+  // Municipios
+  const ms=[...new Set(data.map(d=>d.municipio).filter(Boolean))].sort();
+  document.getElementById('FM').innerHTML='<option value="">Todos</option>'+ms.map(m=>`<option>${m}</option>`).join('');
+  // Actividades
+  const as=[...new Set(data.map(d=>d._act).filter(Boolean))].sort();
+  document.getElementById('FCT').innerHTML='<option value="">Todas</option>'+as.map(a=>`<option>${a}</option>`).join('');
+}
+
+// ── FILTROS ──────────────────────────────────────────────────────────────────
+function setProy(btn){
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  proyActivo = btn.dataset.p||'';
+  // Resetear filtro municipio al cambiar proyecto
+  document.getElementById('FM').value='';
+  applyFilters();
+}
+
+function applyFilters(){
+  const mun  = document.getElementById('FM').value;
+  const anio = document.getElementById('FA').value;
+  const q    = document.getElementById('FQ').value;   // '1','2','3','4' o ''
+  const gen  = document.getElementById('FG').value;
+  const act  = document.getElementById('FCT').value;
+
+  filtData = allData.filter(d=>{
+    // Proyecto
+    if(proyActivo){
+      if(proyActivo==='o'){ if(ALL_PMUNS.includes(d.municipio)) return false; }
+      else { if(!PMUNS[proyActivo].includes(d.municipio)) return false; }
+    }
+    if(mun  && d.municipio!==mun)        return false;
+    if(anio && String(d._anio)!==anio)   return false;
+    if(q    && String(d._q)!==q)         return false;
+    if(gen  && d.mujeres!==gen)          return false;
+    if(act  && d._act!==act)             return false;
+    return true;
+  });
+
+  const mapeables = countMapeables(filtData);
+  document.getElementById('FCNT').textContent=filtData.length.toLocaleString('es-CO');
+
+  const pcnt=document.getElementById('PCNT');
+  if(proyActivo){ pcnt.style.display='block'; pcnt.innerHTML=`Proyecto activo: <strong>${filtData.length.toLocaleString('es-CO')} visitas</strong>`; }
+  else pcnt.style.display='none';
+
+  renderDashboard(filtData);
+}
+
+function resetFilters(){
+  ['FM','FA','FQ','FG','FCT'].forEach(id=>document.getElementById(id).value='');
+  applyFilters();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function renderDashboard(data){
+  renderKPIs(data);
+  renderMap(data);
+  renderMunMes(data);
+  renderQ(data);
+  renderResp(data);
+  renderAct(data);
+  renderVer(data);
+  renderGen(data);
+}
+
+function renderKPIs(data){
+  document.getElementById('KT').textContent=data.length.toLocaleString('es-CO');
+  document.getElementById('KM').textContent=new Set(data.map(d=>d.municipio).filter(Boolean)).size;
+  document.getElementById('KR').textContent=new Set(data.map(d=>d._resp).filter(Boolean)).size;
+  document.getElementById('KV').textContent=new Set(data.map(d=>d.vereda).filter(Boolean)).size;
+  const errF=data.filter(d=>d._errs.length>0);
+  document.getElementById('KE').textContent=errF.length.toLocaleString('es-CO');
+
+  const sc=data.filter(d=>d._act==='Sin clasificar');
+  const ac=document.getElementById('ACARD');
+  if(sc.length){
+    ac.style.display='block';
+    document.getElementById('ACNT').textContent=sc.length+' registros';
+    document.getElementById('ADESC').textContent='El técnico no seleccionó ningún marco de visita en Survey123 (asistencia técnica, monitoreo, PGAS ni subvenciones). Clic para ver el listado completo.';
+  } else ac.style.display='none';
+}
+
+function renderMunMes(data){
+  killChart('CMM');
+  const meses=[...new Set(data.map(d=>d._ym))].sort();
+  const muns=[...new Set(data.map(d=>d.municipio).filter(d=>d&&MCOL[d]))];
+  if(!meses.length||!muns.length) return;
+
+  // Modo actual: agrupado (grouped) por municipio dentro de cada mes
+  const datasets=muns.map(m=>({
+    label:m,
+    data:meses.map(ms=>data.filter(d=>d.municipio===m&&d._ym===ms).length),
+    backgroundColor:(MCOL[m]||'#888')+'CC',
+    borderColor:MCOL[m]||'#888',
+    borderWidth:1,
+    borderRadius:3
+  }));
+
+  document.getElementById('LEGM').innerHTML=muns.map(m=>
+    `<div class="li"><div class="lsq" style="background:${MCOL[m]}"></div>${m.replace('Belén de los Andaquíes','Belén...')}</div>`
+  ).join('');
+
+  const lbl=meses.map(m=>{const[y,mo]=m.split('-');const N=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];return N[+mo]+"'"+y.slice(2);});
+
+  CH['CMM']=new Chart(document.getElementById('CMM'),{
+    type:'bar', data:{labels:lbl, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{mode:'index', intersect:false}
+      },
+      scales:{
+        x:{
+          ticks:{font:{size:9}, autoSkip:false, maxRotation:45},
+          grid:{display:false}
+        },
+        y:{
+          beginAtZero:true,
+          ticks:{font:{size:9}},
+          grid:{color:'rgba(0,0,0,0.05)'}
+        }
+      }
+    }
+  });
+}
+
+function renderQ(data){
+  killChart('CQ');
+  // Agrupar por año+Q preservando orden cronológico
+  const grupos={};
+  data.forEach(d=>{
+    const k=`${d._anio} Q${d._q}`;
+    grupos[k]=(grupos[k]||0)+1;
+  });
+  if(!Object.keys(grupos).length) return;
+  const sorted=Object.keys(grupos).sort();
+  const bg=sorted.map(k=>{
+    const yr=+k.split(' ')[0], qi=sorted.filter(s=>s.startsWith(String(yr))).indexOf(k);
+    return (YCOLS[yr]||YCOLS[2025])[qi%4]+'CC';
+  });
+  const bc=sorted.map(k=>{
+    const yr=+k.split(' ')[0], qi=sorted.filter(s=>s.startsWith(String(yr))).indexOf(k);
+    return (YCOLS[yr]||YCOLS[2025])[qi%4];
+  });
+
+  CH['CQ']=new Chart(document.getElementById('CQ'),{
+    type:'bar',
+    data:{labels:sorted, datasets:[{data:sorted.map(k=>grupos[k]),backgroundColor:bg,borderColor:bc,borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.toLocaleString('es-CO')} visitas`}}},
+      scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:10},maxRotation:45}}}}
+  });
+}
+
+function renderResp(data){
+  const cnt={};
+  data.forEach(d=>{if(d._resp) cnt[d._resp]=(cnt[d._resp]||0)+1;});
+  const sorted=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const max=sorted[0]?.[1]||1;
+  document.getElementById('RESP').innerHTML=sorted.map(([r,v])=>`
+    <div class="hbi">
+      <div class="hbn" title="${r.replace(/_/g,' ')}">${r.replace(/_/g,' ')}</div>
+      <div class="hbt"><div class="hbf" style="width:${Math.round(v/max*100)}%;background:var(--vm)"><span>${v}</span></div></div>
+    </div>`).join('');
+}
+
+function renderAct(data){
+  killChart('CACT');
+  const cnt={};
+  data.forEach(d=>{if(d._act) cnt[d._act]=(cnt[d._act]||0)+1;});
+  const sorted=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length) return;
+  CH['CACT']=new Chart(document.getElementById('CACT'),{
+    type:'bar',
+    data:{labels:sorted.map(([a])=>a), datasets:[{data:sorted.map(([,v])=>v),backgroundColor:ACOLS.slice(0,sorted.length)}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,ticks:{font:{size:9}}},y:{ticks:{font:{size:10}}}}}
+  });
+}
+
+function renderGen(data){
+  killChart('CGEN');
+  const GO=['Hombres','Mujeres','Ambos'];
+  const GC=['#1565C0','#C62828','#2E7D32'];
+  const GL=['Hombres','Mujeres','Ambos (hombres y mujeres)'];
+  const cnts=GO.map(g=>data.filter(d=>d.mujeres===g).length);
+  const tot=cnts.reduce((a,b)=>a+b,0)||1;
+
+  document.getElementById('GENBARS').innerHTML=GO.map((g,i)=>{
+    const v=cnts[i], p=Math.round(v/tot*100);
+    return `<div class="gr">
+      <div class="gh"><span class="gl">${GL[i]}</span><span><span class="gn">${v.toLocaleString('es-CO')}</span> <span class="gp">(${p}%)</span></span></div>
+      <div class="gbar"><div class="gfil" style="width:${p}%;background:${GC[i]}"></div></div>
+    </div>`;
+  }).join('');
+
+  CH['CGEN']=new Chart(document.getElementById('CGEN'),{
+    type:'doughnut',
+    data:{labels:GL, datasets:[{data:cnts,backgroundColor:GC,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'50%',
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},padding:7}}}}
+  });
+}
+
+function renderVer(data){
+  killChart('CVER');
+  const cnt={};
+  data.forEach(d=>{if(d.vereda) cnt[d.vereda]=(cnt[d.vereda]||0)+1;});
+  const sorted=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  if(!sorted.length) return;
+  CH['CVER']=new Chart(document.getElementById('CVER'),{
+    type:'bar',
+    data:{labels:sorted.map(([v])=>v), datasets:[{data:sorted.map(([,n])=>n),backgroundColor:ACOLS.slice(0,sorted.length)}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true,ticks:{font:{size:9}}},y:{ticks:{font:{size:10}}}}}
+  });
+}
+
+// ── MAPA ─────────────────────────────────────────────────────────────────────
+let leafletMap = null;
+let heatLayer = null;
+let pointLayer = null;
+
+function initMap(){
+  return new Promise((resolve)=>{
+    const el=document.getElementById('MAPDIV');
+    if(!el){ resolve(); return; }
+    if(leafletMap){ resolve(); return; }
+    if(typeof L === 'undefined'){
+      el.innerHTML='<div class="map-empty">No fue posible cargar el módulo de mapas.</div>';
+      actualizarMapInfo('Error cargando mapa');
+      resolve();
+      return;
+    }
+    leafletMap = L.map('MAPDIV', { zoomControl:true, preferCanvas:true });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution:'PNNC, Esri, TomTom, Garmin, FAO, NOAA, USGS'
+    }).addTo(leafletMap);
+    leafletMap.setView([2.6, -74.1], 6);
+    resolve();
+  });
+}
+
+async function renderMap(data){
+  await initMap();
+  if(!leafletMap || typeof L === 'undefined') return;
+
+  const pts = data
+    .filter(d=>typeof d._x==='number' && typeof d._y==='number')
+    .map(d=>({ d, coord: normalizarCoordenadas(d._x, d._y) }))
+    .filter(r=>r.coord);
+
+  if(heatLayer){ leafletMap.removeLayer(heatLayer); heatLayer = null; }
+  if(pointLayer){ leafletMap.removeLayer(pointLayer); pointLayer = null; }
+
+  if(!pts.length){
+    actualizarMapInfo('0 registros georreferenciados');
+    return;
+  }
+
+  const heatPts = pts.map(r=>[r.coord.lat, r.coord.lon, 0.8]);
+  heatLayer = L.heatLayer(heatPts, {
+    radius: 28,
+    blur: 22,
+    maxZoom: 13,
+    minOpacity: 0.45,
+    max: 1.0,
+    gradient: {0.15:'#2E7D32',0.4:'#C0CA33',0.65:'#F9A825',1:'#C62828'}
+  }).addTo(leafletMap);
+
+  pointLayer = L.layerGroup(pts.map(r=>
+    L.circleMarker([r.coord.lat, r.coord.lon], {
+      radius: 5,
+      stroke: true,
+      weight: 1,
+      color: '#ffffff',
+      fillColor: '#C62828',
+      fillOpacity: 0.65
+    })
+  )).addTo(leafletMap);
+
+  actualizarMapInfo(`${pts.length.toLocaleString('es-CO')} registros georreferenciados de ${data.length.toLocaleString('es-CO')} visitas filtradas`);
+
+  const bounds = L.latLngBounds(pts.map(r=>[r.coord.lat, r.coord.lon]));
+  if(bounds.isValid()){
+    if(pts.length === 1){
+      leafletMap.setView(bounds.getCenter(), 13);
+      setTimeout(()=>leafletMap.invalidateSize(), 100);
+    } else {
+      leafletMap.fitBounds(bounds.pad(0.2));
+      setTimeout(()=>leafletMap.invalidateSize(), 100);
+    }
+  }
+}
+
+// ── MODAL ERRORES ─────────────────────────────────────────────────────────────
+function abrirModal(){
+  document.getElementById('MO').classList.add('on');
+  const ef=filtData.filter(d=>d._errs.length>0);
+  document.getElementById('MTOTAL').textContent=`${ef.length} registros con datos incompletos (de ${filtData.length} visitas filtradas)`;
+  document.getElementById('MSUB').innerHTML=`<strong>¿Qué significa este informe?</strong><br>
+    Los registros tienen uno o más campos clave vacíos en Survey123.
+    Errores comunes: <strong>Sin familia</strong> (no se registró el beneficiario), <strong>Sin municipio</strong>, <strong>Sin vereda</strong>.<br><br>
+    <strong>Los registros "Sin clasificar"</strong> son visitas donde el técnico respondió "No" a todos los marcos de visita
+    (asistencia técnica, monitoreo comunitario, PGAS y subvenciones) — ningún marco fue seleccionado.<br><br>
+    <strong>Acción:</strong> Abrir Survey123 → Envíos → buscar por ObjectID → Editar y corregir.`;
+  document.getElementById('ETBODY').innerHTML=ef.map(d=>{
+    const fe=new Date(d.fecha).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'2-digit'});
+    const eb=d._errs.map(e=>`<span class="ebdg">${e}</span>`).join(' ');
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:11px">${d.objectid}</td>
+      <td>${fe}</td><td>${d.municipio||'—'}</td><td>${d.vereda||'—'}</td>
+      <td style="font-size:11px">${(d.encuestador||'—').replace(/_/g,' ')}</td>
+      <td style="font-size:11px">${d._act||'—'}</td><td>${eb}</td>
+    </tr>`;
+  }).join('');
+}
+function cerrarModal(){ document.getElementById('MO').classList.remove('on'); }
+
+function exportCSV(){
+  const ef=filtData.filter(d=>d._errs.length>0);
+  const hdr=['ObjectID','Fecha','Municipio','Vereda','Responsable','Actividad','Errores'];
+  const rows=ef.map(d=>[d.objectid,new Date(d.fecha).toLocaleDateString('es-CO'),d.municipio||'',d.vereda||'',(d.encuestador||'').replace(/_/g,' '),d._act||'',d._errs.join(' | ')]);
+  const csv=[hdr,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'})),download:`errores_AT_${new Date().toISOString().slice(0,10)}.csv`});
+  a.click();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(id,btn){
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  btn.classList.add('on');
+}
+
+// ── AUTO-REFRESH cada 5 min ──────────────────────────────────────────────────
+setInterval(()=>{ if(allData.length) loadData(); }, 5*60*1000);
+loadData();
+</script>
+</body>
+</html>
